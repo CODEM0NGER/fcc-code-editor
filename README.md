@@ -17,3 +17,6 @@ This app provides a lightweight environment for editing HTML, CSS, and JavaScrip
 1. Clone the repo:
    ```bash
    git clone git@github.com:CODEM0NGER/fcc-code-editor.git
+2. Access the pages
+   ```bash
+   https://codem0nger.github.io/fcc-code-editor/
