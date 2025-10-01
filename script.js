@@ -3,7 +3,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 const out = $("#output");
 const preview = $("#preview");
-const STORAGE_KEY = "academy-codelab-web";
+const STORAGE_KEY = "monger-codelab-web";
 
 const escapeHtml = s => 
     String (s).replace(/[&<>""]/g, c => ({
@@ -32,7 +32,7 @@ function log(msg, type='info') {
         out.innerHTML = "";
     }
 
-    $("#clearOut")?.addEventListner("click", clearOut);
+    $("#clearOut")?.addEventListener("click", clearOut);
 
     function makeEditor(id, mode) {
 
@@ -43,7 +43,7 @@ function log(msg, type='info') {
 
         ed.session.setUseWrapMode(true);
 
-        ed.commands.assCommand({
+        ed.commands.addCommand({
             name: "run",
             bindKey: {
                 win: 'Ctrl-Enter',
@@ -75,13 +75,13 @@ function log(msg, type='info') {
 
     const editors = {
         html: ed_html,
-        CSS: ed_css,
-        JS: ed_js
+        css: ed_css,
+        js: ed_js
     };
 
     function activePane(){
-        const t = $("#webTabs .tab.active"); 
-        return t ? t.datasset.pane : "html";
+        const t = $("#webTab .tab.active"); 
+        return t ? t.dataset.pane : "html";
     }
 
     function showPane(name){
@@ -90,7 +90,7 @@ function log(msg, type='info') {
                 wraps[k].hidden = (k !== name);
             }})
 
-            $$("#webTabs .tab").forEach(t => {
+            $$("#webTab .tab").forEach(t => {
                 const on = t.dataset.pane === name;
                 t.classList.toggle("active", on);
                 t.setAttribute("aria-selected", on);
@@ -98,7 +98,7 @@ function log(msg, type='info') {
             });
 
             requestAnimationFrame(() => {
-                const ed = editors(name);
+                const ed = editors[name];
                 if (ed && ed.resize) {
                     ed.resize(true);
                     ed.focus();
@@ -107,15 +107,15 @@ function log(msg, type='info') {
     }
 
 
-    $$("#webTabs")?.addEventListner("click", (e) => {
-        const btn = e.target.closet(".tab");
+    $("#webTab")?.addEventListener("click", (e) => {
+        const btn = e.target?.closest(".tab");
         if (!btn) {
             return;
         }
         showPane(btn.dataset.pane);
     })
 
-    $("#webTabs")?.addEventListner("keydown", (e) => {
+    $("#webTab")?.addEventListener("keydown", (e) => {
         const idx = TAB_ORDER.indexOf(activePane());
         if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
             const delta = e.key === "ArrowLeft" ? -1 : 1;
@@ -128,16 +128,16 @@ function log(msg, type='info') {
     function buildwebSrcdoc(withTests=false) {
         const html = ed_html.getValue();
         const css = ed_css.getValue();
-        const js = ed.js.getValue();
+        const js = ed_js.getValue();
         const tests = ($("#testArea")?.value || '').trim();
 
         return `
         <!DOCTYPE html>
 
-        <html lang="en" dir="ltr>
+        <html lang="en" dir="ltr">
 
             <head>
-                <meta chartset="UTF-8">
+                <meta charset="UTF-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
                 
                 <style>
@@ -164,3 +164,108 @@ function log(msg, type='info') {
         </html>`;
     }
 
+    function runWeb(withTests=false) {
+        preview.srcdoc = buildwebSrcdoc(withTests);
+        log(withTests ? "Run with tests" : "Web preview updated.");
+    }
+
+    $("#runWeb")?.addEventListener("click", () => runWeb(false));
+
+    $("#runTests")?.addEventListener("click", () => runWeb(true));
+
+    $("#openPreview")?.addEventListener("click", () => {
+        const src = buildwebSrcdoc(false);
+
+        const w = window.open("about:blank")
+
+        w.document.open();
+        w.document.write(src);
+        w.document.close(); // Close the window to prevent losing resources
+
+    });
+
+    function projectJSON() {
+        return {
+            version: 1,
+            kind: 'web-only',
+            assignment: $("#assignment")?.value || "",
+            test: $("#testArea")?.value || "",
+            html: ed_html.getValue(),
+            css: ed_css.getValue(),
+            js: ed_js.getValue()
+        };
+    }
+
+    function loadProject(obj){
+        try {
+
+
+            if ($('#assignment')) $("#assignment").value = obj.assignment || "";
+
+            if ($('#testArea')) $("#testArea").value = obj.test || "";
+
+            ed_html.setValue(obj.html || "", -1);
+
+            ed_css.setValue(obj.css || "", -1);
+
+            ed_js.setValue(obj.js || "", -1);
+
+            log("Web project loaded.");
+
+
+        } catch (e) {
+            log("Unable to load project: " + e, "error");
+        }
+    }
+
+    
+    function setDefaultContent() {
+        ed_html.setValue(`<!-- Write your html code here... -->`, -1);
+        ed_css.setValue(`/* Write your CSS code here*/`, -1);
+        ed_js.setValue(`// Write your JavaScript code here`, -1);
+    }
+
+    function saveProject() {
+        try {
+            const data = JSON.stringify(projectJSON(), null, 2);
+            localStorage.setItem(STORAGE_KEY, data);
+            const blob = new Blob([data], {type: 'application/json'});
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = "monger-web.json";
+            a.click(); // this is a programmatic way of clicking on element.
+            log("Saved locally and downloaded JSON file");
+
+        } catch (e) {
+            log("Unable to save project: " + e, "error");
+        }
+    }
+
+
+    $("#saveBtn")?.addEventListener("click", saveProject);
+    $("#loadBtn")?.addEventListener("click", () => $("#openFile").click());
+    $("#openFile")?.addEventListener("change", async (e) => {
+        const f = e.target.files?.[0];
+        if (!f) {
+            return;
+        }
+        try {
+            const obj = JSON.parse(await f.text());
+            loadProject(obj);
+        } catch (err) {
+            log("Invalid project file", "error");
+        }
+    });
+
+    try {
+        const cache = localStorage.getItem(STORAGE_KEY);
+        if (cache) {
+            loadProject(JSON.parse(cache));
+        } else {
+            setDefaultContent();
+        }
+    } catch{
+        setDefaultContent();
+    }
+
+    log("Ready - Web only Editor (HTML/CSS/JS)");
